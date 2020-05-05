@@ -54,7 +54,7 @@ def extract(text):
     for match in parser.findall(text):
         dates_lst.append(''.join([_.value for _ in match.tokens]))
         dates_spans.append(match.span)
-    
+
     # Sometimes we dont have information about birthday and we should check difference between years
     # in first two dates to determine there is information about birthday or not
     if int(dates_lst[1][-2:])-int(dates_lst[0][-2:])<0:
@@ -71,11 +71,11 @@ def extract(text):
         dict_symp['Дата заболевания'] = dates_lst[1]
         dict_index['Дата осмотра'] = dates_spans[0]
         dict_index['Дата заболевания'] = dates_spans[1]
-    
+
     # If date was written without year, we take year from previous date
     if len(dict_symp['Дата заболевания'])==5:
         dict_symp['Дата заболевания'] += dict_symp['Дата осмотра'][dict_symp['Дата осмотра'].rfind('.'):]
-    
+
     # Rule for detecring dates with such situation "болен 5 дней"
     DAY_RULE = morph_pipeline(['дней'])
     parser = Parser(DAY_RULE)
@@ -132,7 +132,7 @@ def extract(text):
         d2 = datetime.strptime(dict_symp['Дата рождения'], '%d.%m.%Y')
         dict_symp['Возраст в днях'] = (d1 - d2).days
 
-    #Rule for time detecting
+    # Rule for time detecting
     time_lst = []
     time_spans = []
 
@@ -150,7 +150,7 @@ def extract(text):
         s = s.replace('часов', ':00')
         s = s.replace('час', ':00')
         time_lst.append(s)
-    
+
     # if we have only 1 date 'Время поступления' = 'Время заболевания'
     if time_lst: 
         dict_symp['Время поступления'] = time_lst[0]
@@ -274,10 +274,11 @@ def extract(text):
         dict_index['температура поступления'] = temp_spans[0]
 
     # Find temperatures in whole text
+    temp_text = text[text.find('Жалобы'):]
     temp_lst = []
     temp_spans = []
     parser = Parser(TEMP_RULE)
-    for match in parser.findall(text):
+    for match in parser.findall(temp_text):
         temp_lst.append(''.join([_.value for _ in match.tokens]))
         temp_spans.append(match.span)
 
@@ -328,6 +329,7 @@ def extract(text):
     family = anamnez[anamnez.find('Семейный'):anamnez.find('Семейный')+60]
     if family:
         anamnez = anamnez.replace(family,' ')
+    anamnez = anamnez[:anamnez.rfind('Диагноз')]
     dis_lst = []
     dis_spans = []
     parser = Parser(DISEASES_RULE)
@@ -339,7 +341,7 @@ def extract(text):
     OP_RULE = or_(rule(normalized('описторхоз'), not_(normalized('не'))))
     parser = Parser(OP_RULE)
     op_lst = []
-    for match in parser.findall(text):
+    for match in parser.findall(anamnez):#text
         op_lst.append((match.span, [_.value for _ in match.tokens]))
     if op_lst:
         dis_lst.append(' описторхоз')
@@ -349,7 +351,7 @@ def extract(text):
     TUB_RULE = rule(normalized('туберкулез'), not_(normalized('отрицает')))
     parser = Parser(TUB_RULE)
     tub_lst = []
-    for match in parser.findall(text):
+    for match in parser.findall(anamnez):#text
         tub_lst.append((match.span, [_.value for _ in match.tokens]))
     if tub_lst:
         dis_lst.append(' туберкулез')
@@ -359,10 +361,10 @@ def extract(text):
     VICH_RULE = morph_pipeline(['ВИЧ'])
     parser = Parser(VICH_RULE)
     vich_lst = []
-    for match in parser.findall(text):
+    for match in parser.findall(anamnez):#text
         vich_lst.append((match.span, [_.value for _ in match.tokens]))
     if vich_lst:
-        text_vich = text[match.span[1]-30:match.span[1]+30]
+        text_vich = anamnez[match.span[1]-30:match.span[1]+30]
         TYPE = morph_pipeline(['отрицает'])
         parser = Parser(TYPE)
         vich_lst = []
@@ -372,7 +374,8 @@ def extract(text):
             dis_lst.append(' ВИЧ')
             dis_spans.append(match.span)
     
-    if dis_lst:     
+    if dis_lst:
+        dis_lst = list(set(dis_lst))
         dict_symp['др заболевания в анамнезе'] = ', '.join(dis_lst)
         dict_index['др заболевания в анамнезе'] = dis_spans
         dict_symp['др заболевания в анамнезе'] = morph.parse(dict_symp['др заболевания в анамнезе'])[0].normal_form
@@ -520,7 +523,7 @@ def extract(text):
     
     COND_RULE = morph_pipeline(['бытовые'])
     COND_RULE2 = rule(not_(normalized('не')),normalized('удовлетворительные'))
-    cond_space = [30,30]
+    cond_space = [0,60]
     SEC_COND_RULE = morph_pipeline(['Социально-бытовые'])
     sec_cond_space = [0,60]
     
@@ -610,7 +613,8 @@ def extract(text):
         dict_index['избыточное питание'] = match.span
         text_food = text[match.span[1]-20:match.span[1]+20]
         FOOD_RULE = or_(rule(not_(normalized('не')),normalized('удовлетворительное')),
-                        rule(not_(normalized('не')),normalized('полноценное')))
+                        rule(not_(normalized('не')),normalized('полноценное')),
+                        rule(not_(normalized('не')),normalized('домашнее')))
         parser = Parser(FOOD_RULE)
         food_lst = []
         for match in parser.findall(text_food):
@@ -639,6 +643,7 @@ def extract(text):
     for match in parser.findall(text):
         fish_lst.append((match.span, [_.value for _ in match.tokens]))
     if fish_lst:
+        dict_symp['речная рыба'] = 0
         dict_index['речная рыба'] = match.span
         text_fish = text[match.span[1]-40:match.span[1]+40]
         FISH_RULE = morph_pipeline(['да', 'постоянно'])
@@ -654,7 +659,7 @@ def extract(text):
         for match in parser.findall(text_fish):
             fish_lst.append((match.span, [_.value for _ in match.tokens]))
         if fish_lst:
-            dict_symp['речная рыба'] = 0
+            dict_symp['речная рыба'] = 1
             dict_index['речная рыба'] = match.span
 
     # Rule for home
@@ -708,37 +713,46 @@ def extract(text):
     # Rules for different factors
     factors = []
     factors_span = []
-    factor_types = [['ссадины',"царапины", "раны", "расчесы", "уколы", "потертости", "трещины", 'вскрытие'],
+    factor_types = [['ссадины',"царапины", "раны", "расчесы", "уколы", "потертости", "трещины", 'вскрытие', 'поцарапал', "рассечен"],
                    ['ушибы'],
-                   ['переохлаждение','перегревание','смена температуры'],
+                   ['переохлаждение','перегревание','смена температуры',"охлаждение"],
                    ['инсоляция'],
-                   ['стресс'],
-                   ['переутомление']]
+                   ['стресс', "стрессовая ситуация"],
+                   ['переутомление', 'тяжело работал']]
 
-    def find_factors(factor_types):
-        for i in range(len(factor_types)):
+    def find_factors(factor_types, text=text, left=0, right=len(factor_types)):
+        for i in range(len(factor_types[left:right])):
             factor_lst = []
-            FACT_RULE = morph_pipeline(factor_types[i])
+            FACT_RULE = morph_pipeline(factor_types[i+left])
             parser = Parser(FACT_RULE)
             for match in parser.findall(text):
                 factor_lst.append(' '.join([_.value for _ in match.tokens]))
                 factors_span.append(match.span)
             if factor_lst:
-                factors.append(i+1)
-                
+                factors.append(i+1+left)
+
     find_factors(factor_types)
+    detect_lst = []
+    parser = Parser(morph_pipeline(['трещин - не обнаружено']))
+    for match in parser.findall(text):
+        detect_lst.append(' '.join([_.value for _ in match.tokens]))
+    if detect_lst:
+        factors.remove(1)
+        
     if factors:
         dict_symp['провоцирущие факторы'] = factors
         dict_index['провоцирущие факторы'] = factors_span
-
+            
     factors = []
     factors_span = []
-    factor_types = [['микоз',"диабет", "ожирение", "варикоз", "недостаточность", "лимфостаз", "экзема"],
+    factor_types = [['микоз',"диабет", "ожирение", "варикоз", "недостаточность", "лимфостаз", "экзема", "варикозная болезнь"],
                    ['тонзилит',"отит", "синусит", "кариес", "пародонтоз", "остеомиелит", "тромбофлебит", "трофические язвы"],
                    ['резиновая обувь','загрязнения кожных'],
                    ['соматические заболевания']]
-
-    find_factors(factor_types)
+    
+    if dict_symp['др заболевания в анамнезе']:
+        find_factors(factor_types, text=dict_symp['др заболевания в анамнезе'], right=2)
+    find_factors(factor_types, left=2)
     if factors:
         dict_symp['предрасполагающие факторы'] = factors
         dict_index['предрасполагающие факторы'] = factors_span
@@ -817,7 +831,7 @@ def extract(text):
         last = len(text)-1
     zhalobi = text[comp_lst[0][0][1]+1:last]
     
-    rozha_types = [['волосистая часть головы', 'волостистой части головы'], ['лицо','щека'],
+    rozha_types = [['волосистая часть головы', 'волостистой части головы'], ['лицо','щека','лоб','глаз'],
                    ['нос','губы'],['верняя часть туловища', 'верхняя конечность'],['нижняя часть туловища'],
                    ['пах', 'половые органы'],['верняя часть спины'],['нижняя часть спины'],
                    ['плечо'],['предплечье'],['кисть'],['бедро'],['голень'],['стопа'],['голеностоп'], ["ушная раковина"]]
