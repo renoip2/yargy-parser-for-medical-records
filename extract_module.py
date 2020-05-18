@@ -364,7 +364,7 @@ def extract(text):
     for match in parser.findall(anamnez):#text
         vich_lst.append((match.span, [_.value for _ in match.tokens]))
     if vich_lst:
-        text_vich = anamnez[match.span[1]-30:match.span[1]+30]
+        text_vich = anamnez[list(match.span)[1]-30:list(match.span)[1]+30]
         TYPE = morph_pipeline(['отрицает'])
         parser = Parser(TYPE)
         vich_lst = []
@@ -390,7 +390,7 @@ def extract(text):
     if lu_lst:
         dict_symp['Лимфаденит'] = 0
         dict_index['Лимфаденит'] = lu_spans
-        text_lu = text[match.span[1]-70:match.span[1]+70]
+        text_lu = text[list(match.span)[1]-70:list(match.span)[1]+70]
         TYPE = morph_pipeline(["болезненны", "болезненные", "болезнены"])
         parser = Parser(TYPE)
         lu_lst = []
@@ -458,7 +458,7 @@ def extract(text):
     all_lst = []
     parser = Parser(ALLERG_RULE)
     for match in parser.findall(text):
-        all_lst.append((match.span, [_.value for _ in match.tokens]))
+        all_lst.append((list(match.span), [_.value for _ in match.tokens]))
     if all_lst:
         index = all_lst[0][0][1]
         dict_symp['аллергическая реакция'] = text[index:text[index:].find('.')+index]
@@ -506,7 +506,7 @@ def extract(text):
             lst.append((match.span, [_.value for _ in match.tokens]))
         if lst:
             dict_index[feature] = match.span
-            add_text = text[match.span[1]-space[0]:match.span[1]+space[1]]
+            add_text = text[list(match.span)[1]-space[0]:list(match.span)[1]+space[1]]
             parser = Parser(RULE2)
             lst = []
             for match in parser.findall(add_text):
@@ -558,7 +558,7 @@ def extract(text):
         hab_lst.append((match.span, [_.value for _ in match.tokens]))
     if hab_lst:
         dict_index['вредные привычки'] = match.span
-        text_hab = text[match.span[1]-80:match.span[1]+80]
+        text_hab = text[list(match.span)[1]-80:list(match.span)[1]+80]
         HAB_RULE = morph_pipeline(['не было', 'отрицает', 'нет', 'не употребляет'])
         parser = Parser(HAB_RULE)
         hab_lst = []
@@ -611,7 +611,7 @@ def extract(text):
         food_lst.append((match.span, [_.value for _ in match.tokens]))
     if food_lst:
         dict_index['избыточное питание'] = match.span
-        text_food = text[match.span[1]-20:match.span[1]+20]
+        text_food = text[list(match.span)[1]-20:list(match.span)[1]+20]
         FOOD_RULE = or_(rule(not_(normalized('не')),normalized('удовлетворительное')),
                         rule(not_(normalized('не')),normalized('полноценное')),
                         rule(not_(normalized('не')),normalized('домашнее')))
@@ -645,7 +645,7 @@ def extract(text):
     if fish_lst:
         dict_symp['речная рыба'] = 0
         dict_index['речная рыба'] = match.span
-        text_fish = text[match.span[1]-40:match.span[1]+40]
+        text_fish = text[list(match.span)[1]-40:list(match.span)[1]+40]
         FISH_RULE = morph_pipeline(['да', 'постоянно'])
         parser = Parser(FISH_RULE)
         fish_lst = []
@@ -717,6 +717,7 @@ def extract(text):
                    ['ушибы'],
                    ['переохлаждение','перегревание','смена температуры',"охлаждение"],
                    ['инсоляция'],
+                   ['лучевая терапия'],
                    ['стресс', "стрессовая ситуация"],
                    ['переутомление', 'тяжело работал']]
 
@@ -767,8 +768,8 @@ def extract(text):
     for match in parser.findall(text):
         diag_lst.append((match.span, [_.value for _ in match.tokens]))
     if diag_lst:
-        dict_symp['сопутствующий диагноз'] = text[match.span[1]+2:match.span[1]+text[match.span[1]:].find(' \n  \n')]
-        dict_index['сопутствующий диагноз'] = [match.span[1]+2,match.span[1]+text[match.span[1]:].find(' \n  \n')]
+        dict_symp['сопутствующий диагноз'] = text[list(match.span)[1]+2:list(match.span)[1]+text[list(match.span)[1]:].find(' \n  \n')]
+        dict_index['сопутствующий диагноз'] = [list(match.span)[1]+2,list(match.span)[1]+text[list(match.span)[1]:].find(' \n  \n')]
         dict_symp['кол-во сопут заболеваний'] = dict_symp['сопутствующий диагноз'].count('\n')
         if dict_symp['кол-во сопут заболеваний']==0: dict_symp['кол-во сопут заболеваний']=1
 
@@ -786,11 +787,11 @@ def extract(text):
     parser = Parser(DIAGNOZ_RULE)
     for match in parser.findall(text):
         diag_lst.append((match.span, [_.value for _ in match.tokens]))
-    last = match.span[1]+text[match.span[1]:].find(' \n  \n')
-    if last == match.span[1]-1:
+    last = list(match.span)[1]+text[list(match.span)[1]:].find(' \n  \n')
+    if last == list(match.span)[1]-1:
         last = len(text)-1
-    dict_symp['основной диагноз'] = text[match.span[1]+1:last]
-    dict_index['основной диагноз'] = [match.span[1]+1,last]
+    dict_symp['основной диагноз'] = text[list(match.span)[1]+1:last]
+    dict_index['основной диагноз'] = [list(match.span)[1]+1,last]
 
     # Rules for detecting ЛПТ and ППТ
     LEFT_RULE = morph_pipeline(['левая', 'слева'])
@@ -813,10 +814,10 @@ def extract(text):
         parser = Parser(DIAGNOZ_RULE)
         for match in parser.findall(part):
             side_lst.append((match.span, [_.value for _ in match.tokens]))
-        last = match.span[1]+part[match.span[1]:].find(' \n  \n')
-        if last == match.span[1]-1:
+        last = list(match.span)[1]+part[list(match.span)[1]:].find(' \n  \n')
+        if last == list(match.span)[1]-1:
             last = len(part)-1
-        explaining = part[match.span[1]+1:last]
+        explaining = part[list(match.span)[1]+1:last]
         if len(explaining)>1:
             part = part.replace(explaining,' ')
     
@@ -825,7 +826,7 @@ def extract(text):
     comp_lst = []
     parser = Parser(DIAGNOZ_RULE)
     for match in parser.findall(text):
-        comp_lst.append((match.span, [_.value for _ in match.tokens]))
+        comp_lst.append((list(match.span), [_.value for _ in match.tokens]))
     last = comp_lst[0][0][1]+text[comp_lst[0][0][1]:].find(' \n  \n')
     if last == comp_lst[0][0][1]-1:
         last = len(text)-1
